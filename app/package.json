@@ -1,0 +1,50 @@
+{
+  "name": "@finmanai/app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/predev.ts",
+    "dev": "next dev",
+    "stop": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/stop.ts",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "inspect": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/inspect.ts",
+    "db:seed": "node --disable-warning=ExperimentalWarning --experimental-strip-types prisma/seed.ts",
+    "db:use": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/db-use.ts",
+    "smoke": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/smoke.ts",
+    "smoke:full": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/smoke-full.ts",
+    "verify:integrity": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/verify-integrity.ts",
+    "verify:email": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/verify-email.ts",
+    "totp": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/totp-code.ts",
+    "checks": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/scheduled-checks.ts",
+    "send:reminders": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/send-reminders.ts",
+    "rotate:keys": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/rotate-keys.ts",
+    "backup": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/backup.ts",
+    "assumptions": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/assumptions.ts",
+    "test:phase6": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/phase6.ts",
+    "check:spending": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/spending-baseline.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0",
+    "@types/nodemailer": "^8.0.1",
+    "@types/qrcode": "^1.5.6",
+    "next": "^15.1.0",
+    "nodemailer": "^9.0.5",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "autoprefixer": "^10.5.4",
+    "prisma": "^6.1.0",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  }
+}

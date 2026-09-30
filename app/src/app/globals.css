@@ -1,0 +1,535 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens.
+ *
+ * Defined as CSS custom properties rather than Tailwind theme extensions so the
+ * light and dark palettes swap at the variable level — every component then
+ * inherits the change without a single `dark:` variant, and there is one place
+ * to look when a colour is wrong.
+ *
+ * The palette is deliberately quiet. This product tells people things they may
+ * not want to hear — that they are in deficit, that a goal is out of reach, that
+ * their life cover is a fifth of what it should be. Colour here is doing
+ * semantic work (a band, a severity, a warning), so the neutral canvas has to
+ * stay out of its way. Anything decorative competes with the one red thing on
+ * the page that matters.
+ */
+:root {
+  /* Neutrals: a warm grey, which reads less clinical than pure slate for a
+     document someone is asked to sit and read. */
+  --bg:            #fbfbfa;
+  --surface:       #ffffff;
+  --surface-sunk:  #f5f5f3;
+  --border:        #e5e4e0;
+  --border-strong: #d0cfc9;
+
+  --text:          #1c1c1a;
+  --text-muted:    #5f5e59;
+  --text-faint:    #8b8a83;
+
+  /* Ink is the primary action colour — near-black rather than a brand blue.
+     A financial plan is a document; its buttons should not look like a SaaS
+     marketing page. */
+  --ink:           #1c1c1a;
+  --ink-hover:     #35342f;
+  --on-ink:        #ffffff;
+
+  /* Semantic. Each has a surface, a border and a foreground so a band or a
+     severity is always rendered from a matched set. */
+  --good-bg:       #e8f3ec;  --good-fg:    #1a5133;  --good-border: #bcdcc8;
+  --warn-bg:       #fdf3e0;  --warn-fg:    #6b4a10;  --warn-border: #f0dcb4;
+  --bad-bg:        #fceceb;  --bad-fg:     #7d2620;  --bad-border:  #f2c9c5;
+  --info-bg:       #eef1f6;  --info-fg:    #2c3e57;  --info-border: #cfd8e5;
+
+  --focus:         #2f6fd0;
+
+  /*
+   * Brand. Sampled from the logo artwork rather than invented: #15458e is the
+   * navy of the wordmark, #1a9f8c the teal of "AI" and the arrow, and #17798a
+   * the point the gradient passes through between them.
+   *
+   * These are scoped to the signed-out screens on purpose. Inside the product
+   * the primary action stays near-black — a plan is a document, and brand
+   * colour competing with a red "your cover is a fifth of what it should be" is
+   * exactly the failure the neutral palette above exists to prevent. The front
+   * door is the one place where the brand is the content.
+   *
+   * `--brand-fg` and the gradient stops are separated because they answer to
+   * different tests: one has to be legible ON the surface, the others have to
+   * carry white text. The teal end of the ramp is only 3.3:1 against white, so
+   * the gradient stops short of it at #17798a (4.8:1) and the full teal is kept
+   * for accents that carry no text.
+   */
+  --brand-fg:        #15458e;
+  --brand-grad-from: #15458e;
+  --brand-grad-to:   #17798a;
+  --brand-bright:    #1a9f8c;
+  --brand-tint:      #eef3f9;
+  --brand-ring:      rgba(21, 69, 142, 0.14);
+  --brand-ring-strong: rgba(21, 69, 142, 0.32);
+
+  /*
+   * Elevation. Tinted towards the brand navy rather than neutral black —
+   * a grey shadow under a blue-tinted card reads as dirt.
+   */
+  --shadow-sm:    0 1px 2px rgba(16, 42, 80, 0.05), 0 6px 16px -10px rgba(16, 42, 80, 0.18);
+  --shadow-md:    0 1px 2px rgba(16, 42, 80, 0.06), 0 12px 32px -12px rgba(16, 42, 80, 0.18);
+  --shadow-brand: 0 1px 2px rgba(16, 42, 80, 0.22), 0 6px 16px -8px rgba(16, 42, 80, 0.45);
+
+  --radius:        0.625rem;
+  --radius-sm:     0.375rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:            #16161a;
+    --surface:       #1e1e22;
+    --surface-sunk:  #26262b;
+    --border:        #33333a;
+    --border-strong: #45454e;
+
+    --text:          #ececeb;
+    --text-muted:    #a5a5a0;
+    --text-faint:    #7d7d78;
+
+    --ink:           #ececeb;
+    --ink-hover:     #ffffff;
+    --on-ink:        #16161a;
+
+    --good-bg:       #16301f;  --good-fg:  #93d5ad;  --good-border: #244a2f;
+    --warn-bg:       #33260c;  --warn-fg:  #edc678;  --warn-border: #4d3a14;
+    --bad-bg:        #331917;  --bad-fg:   #f0a49d;  --bad-border:  #4d2521;
+    --info-bg:       #1b2431;  --info-fg:  #a9c1e0;  --info-border: #2b3a4f;
+
+    --focus:         #74a4ea;
+
+    /* Lightened for legibility on #1e1e22; the gradient keeps its saturation
+       because white text still has to sit on it. */
+    --brand-fg:        #5cc4b1;
+    --brand-grad-from: #1b52a6;
+    --brand-grad-to:   #188790;
+    --brand-bright:    #46c9b2;
+    --brand-tint:      #182229;
+    --brand-ring:      rgba(92, 196, 177, 0.16);
+    --brand-ring-strong: rgba(92, 196, 177, 0.34);
+
+    /* On a dark canvas a shadow is nearly invisible, so elevation is carried by
+       a darker, tighter drop plus the surface being lighter than the page. */
+    --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px -10px rgba(0, 0, 0, 0.6);
+    --shadow-md:    0 1px 2px rgba(0, 0, 0, 0.45), 0 12px 32px -12px rgba(0, 0, 0, 0.65);
+    --shadow-brand: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px -8px rgba(0, 0, 0, 0.6);
+  }
+}
+
+@layer base {
+  html {
+    /* Indian rupee figures are read as magnitudes — tabular numerals keep the
+       digits in the same columns so ₹5,28,87,955 and ₹51,176 can be compared
+       down a table without counting commas. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* A visible focus ring everywhere. This is a form-heavy product and a
+     keyboard user must always know where they are. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Long-form advice text. Comfortable measure, generous leading — people read
+     this once, carefully, and decide what to do with their money. */
+  .prose-advice {
+    max-width: 62ch;
+    line-height: 1.7;
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------- *
+   * Surfaces
+   * ---------------------------------------------------------------- */
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  /* A card that is the subject of the section rather than one of several —
+     the shadow is what separates "read this" from "here is a list". */
+  .card-raised {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Interactive cards: rows in a list that lead somewhere. The lift is small
+     on purpose — this is a document, and a card that jumps reads as an advert. */
+  .card-link {
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  }
+  .card-link:hover {
+    border-color: var(--brand-ring-strong);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Form controls
+   *
+   * Sized for a form somebody fills in for forty minutes: 2.75rem of height,
+   * which is the smallest comfortable touch target, and a focus treatment that
+   * changes the border as well as adding a ring so it survives high-contrast
+   * modes that drop box-shadows.
+   * ---------------------------------------------------------------- */
+
+  .field {
+    width: 100%;
+    min-height: 2.75rem;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.75rem;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .field::placeholder { color: var(--text-faint); }
+  .field:hover:not(:focus):not(:disabled) { border-color: var(--text-faint); }
+  .field:focus {
+    outline: none;
+    border-color: var(--brand-fg);
+    box-shadow: 0 0 0 3px var(--brand-ring);
+  }
+  /* A field the server has rejected. The colour is not the whole signal — the
+     message beneath it is — but a red field is how someone finds the message. */
+  .field-invalid,
+  .field[aria-invalid='true'] {
+    border-color: var(--bad-border);
+    background: color-mix(in srgb, var(--bad-bg) 45%, var(--surface));
+  }
+  .field-invalid:focus,
+  .field[aria-invalid='true']:focus {
+    border-color: var(--bad-fg);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad-fg) 18%, transparent);
+  }
+
+  select.field {
+    appearance: none;
+    padding-right: 2.25rem;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 1.05rem) 55%, calc(100% - 0.7rem) 55%;
+    background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+    background-repeat: no-repeat;
+  }
+
+  /* Native controls follow the brand instead of the OS accent, which is
+     otherwise the one blue on the page nobody chose. */
+  input[type='checkbox'],
+  input[type='radio'] { accent-color: var(--brand-fg); }
+
+  .label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+  /* Help text sits between the label and the control, not after it: the reason
+     a question is being asked has to arrive before the answer is attempted. */
+  .help {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Buttons
+   * ---------------------------------------------------------------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 1.15rem;
+    min-height: 2.75rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease, filter 120ms ease,
+      box-shadow 120ms ease;
+  }
+  .btn-sm { padding: 0.4rem 0.8rem; min-height: 2.25rem; font-size: 0.875rem; }
+  .btn-lg { padding: 0.85rem 1.5rem; min-height: 3.15rem; font-size: 1rem; }
+
+  /*
+   * The primary action is the brand gradient.
+   *
+   * This is the one place brand colour earns a place inside the product: there
+   * is at most one primary action per screen, and it is the thing the page is
+   * asking you to do. Everything that carries *meaning* — a band, a severity, a
+   * warning — still comes from the semantic palette, so brand colour never
+   * competes with the one red thing on the page that matters. Use `.btn-ink`
+   * where a neutral action would be better.
+   */
+  .btn-primary {
+    background-image: linear-gradient(100deg, var(--brand-grad-from), var(--brand-grad-to));
+    color: #fff;
+    border: 0;
+    box-shadow: var(--shadow-brand);
+  }
+  .btn-primary:hover:not(:disabled) { filter: saturate(1.1) brightness(1.06); }
+  .btn-primary:active:not(:disabled) { filter: brightness(0.96); }
+
+  /* Kept as a name of its own so the signed-out screens read as what they are,
+     even though it currently resolves to the same treatment as `.btn-primary`. */
+  .btn-brand {
+    background-image: linear-gradient(100deg, var(--brand-grad-from), var(--brand-grad-to));
+    color: #fff;
+    border: 0;
+    box-shadow: var(--shadow-brand);
+  }
+  .btn-brand:hover:not(:disabled) { filter: saturate(1.1) brightness(1.06); }
+  .btn-brand:active:not(:disabled) { filter: brightness(0.96); }
+
+  .btn-ink { background: var(--ink); color: var(--on-ink); }
+  .btn-ink:hover:not(:disabled) { background: var(--ink-hover); }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-sunk); border-color: var(--text-faint); }
+
+  /* For a third-rank action that should not look clickable enough to compete. */
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover:not(:disabled) { background: var(--surface-sunk); color: var(--text); }
+
+  /* Destructive actions are outlined rather than filled: a red slab reads as an
+     alarm, and this is a button somebody may legitimately want to press. */
+  .btn-danger {
+    background: var(--surface);
+    color: var(--bad-fg);
+    border: 1px solid var(--bad-border);
+  }
+  .btn-danger:hover:not(:disabled) { background: var(--bad-bg); }
+
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+
+  /* ---------------------------------------------------------------- *
+   * Tables
+   *
+   * Financial tables are read down a column, so the header stays quiet and the
+   * row separation does the work. Numeric columns are right-aligned and
+   * tabular — see the `font-variant-numeric` note in the base layer.
+   * ---------------------------------------------------------------- */
+
+  .table { width: 100%; font-size: 0.875rem; border-collapse: collapse; }
+  .table thead th {
+    padding: 0 0.75rem 0.6rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .table tbody td { padding: 0.85rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .table tbody tr:last-child td { border-bottom: 0; }
+  .table tbody tr { transition: background-color 120ms ease; }
+  .table tbody tr:hover { background: var(--surface-sunk); }
+  .table .num { text-align: right; white-space: nowrap; }
+
+  /* Wide content scrolls inside its own box; the page body never scrolls
+     sideways. The fade tells you there is more to the right. */
+  .scroll-x { overflow-x: auto; }
+
+  /* ---------------------------------------------------------------- *
+   * Small pieces
+   * ---------------------------------------------------------------- */
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--surface-sunk);
+    color: var(--text-muted);
+  }
+
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.875rem;
+  }
+
+  /* A quiet aside inside a section — reassurance, a note, a caveat. */
+  .aside-note {
+    border-left: 2px solid var(--brand-ring-strong);
+    background: var(--surface-sunk);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 0.9rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: var(--text-muted);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * The signed-out shell.
+   * ---------------------------------------------------------------- */
+
+  /*
+   * A brand wash behind the sign-in card. Three soft radial stops in the logo's
+   * own colours, drawn as gradients rather than an image: nothing to fetch,
+   * nothing to cache-bust, and it cannot fail the `img-src 'self'` policy the
+   * middleware sets.
+   */
+  .auth-bg {
+    position: relative;
+    isolation: isolate;
+    background: var(--bg);
+  }
+  .auth-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(58rem 34rem at 12% -8%, color-mix(in srgb, var(--brand-grad-from) 16%, transparent), transparent 62%),
+      radial-gradient(46rem 30rem at 92% 8%, color-mix(in srgb, var(--brand-bright) 15%, transparent), transparent 60%),
+      radial-gradient(52rem 40rem at 70% 104%, color-mix(in srgb, var(--brand-grad-to) 12%, transparent), transparent 64%);
+  }
+
+  /*
+   * The node motif from the logo, reduced to a dot lattice. Kept below 4%
+   * opacity: it should register as texture and never as pattern, because the
+   * thing on this screen worth looking at is the form.
+   */
+  .auth-mesh::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: radial-gradient(currentColor 1px, transparent 1px);
+    background-size: 26px 26px;
+    opacity: 0.055;
+    -webkit-mask-image: radial-gradient(70% 60% at 50% 40%, #000, transparent 78%);
+    mask-image: radial-gradient(70% 60% at 50% 40%, #000, transparent 78%);
+    pointer-events: none;
+  }
+
+  /* The brand panel beside the form on wide screens. */
+  .auth-aside {
+    background-image: linear-gradient(155deg, var(--brand-grad-from) 0%, #17607f 52%, var(--brand-grad-to) 100%);
+    color: #eaf6f6;
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-aside::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(#ffffff 1px, transparent 1px);
+    background-size: 22px 22px;
+    opacity: 0.07;
+    -webkit-mask-image: radial-gradient(80% 70% at 30% 20%, #000, transparent 75%);
+    mask-image: radial-gradient(80% 70% at 30% 20%, #000, transparent 75%);
+  }
+
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+  }
+
+
+}
+
+/* Respect a user's reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  /*
+   * Force the light palette onto paper.
+   *
+   * Without this, anyone whose system is set to dark mode prints a plan whose
+   * muted text is #a5a5a0 on white — legible on screen, very nearly invisible
+   * on a page. Setting `color` on the body was not enough: every figure that
+   * asks for `var(--text-muted)` or a semantic band keeps its dark-mode value.
+   * This is a document somebody keeps, so the tokens are redefined rather than
+   * patched element by element.
+   */
+  :root {
+    --bg:            #ffffff;
+    --surface:       #ffffff;
+    --surface-sunk:  #f5f5f3;
+    --border:        #d8d7d2;
+    --border-strong: #b8b7b1;
+
+    --text:          #111111;
+    --text-muted:    #444440;
+    --text-faint:    #66665f;
+
+    --ink:           #111111;
+    --on-ink:        #ffffff;
+
+    --good-bg: #eef6f0;  --good-fg: #14452b;  --good-border: #b7d7c3;
+    --warn-bg: #fdf5e6;  --warn-fg: #5c3f0c;  --warn-border: #eddaae;
+    --bad-bg:  #fceeed;  --bad-fg:  #6d1f1a;  --bad-border:  #eec4c0;
+    --info-bg: #eff2f7;  --info-fg: #23334a;  --info-border: #cad4e2;
+
+    --brand-fg:        #15458e;
+    --brand-grad-from: #15458e;
+    --brand-grad-to:   #17798a;
+    --brand-tint:      #eef3f9;
+
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-brand: none;
+  }
+
+  body { background: #fff; color: #111; }
+  .no-print { display: none !important; }
+
+  /* Ink costs money and a screenshot of a table is not a table. */
+  .card, .card-raised { border-color: #d8d7d2; box-shadow: none; }
+  .scroll-x { overflow: visible !important; }
+  .table tbody tr:hover { background: transparent; }
+}
+
+@layer utilities {
+  /* Visible to screen readers only — used for state that is obvious visually
+     but silent otherwise, like whether a password is currently revealed. */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}

@@ -1,0 +1,106 @@
+# Secrets. FIELD_KEY_* decrypts every stored profile and plan; IP_PEPPER
+# unmasks hashed addresses. A committed key beside an encrypted database is a
+# plaintext database, so this entry is the single most important line here.
+.env
+.env.*
+!.env.example
+
+# The three per-database env files (live / test / testdb) each carry their own
+# FIELD_KEY. They match `.env.*` above; named here so nobody "fixes" the glob.
+.env.db.live
+.env.db.test
+.env.db.testdb
+.env-old-profiles/
+.env.backup
+
+# Anything else that is key material by shape rather than by name.
+*.pem
+*.p12
+*.pfx
+*.key
+secrets/
+
+# Database dumps. Field encryption means these hold ciphertext rather than
+# financial data, but they still carry email addresses, hashed IPs and the whole
+# audit trail — and they must never sit beside the keys that decrypt them.
+backups/
+*.dump
+*.sql.gz
+# Note: a bare `*.sql` would swallow app/prisma/migrations/*/migration.sql,
+# which must be committed — the migration history is how a restored backup
+# lines up with the schema that wrote it.
+
+# Local database files from an earlier SQLite iteration. The -shm/-wal
+# siblings hold pages not yet checkpointed into the .db, so ignoring only
+# the .db would still commit recent rows.
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Build and dependency output
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Caches. None of these are reproducible across machines, and a stale one
+# causes failures that look like code bugs.
+.cache/
+.eslintcache
+.parcel-cache/
+.npm/
+.pnpm-store/
+.yarn/cache/
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Logs and process files. Never commit a log from this app: it may name a
+# profile ID, and a long enough log names every profile ID.
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.pid.lock
+
+# Scratch and editor leftovers. *.orig and *.rej are merge debris; committing
+# one silently ships a half-resolved conflict.
+*.bak
+*.tmp
+*.orig
+*.rej
+*~
+*.swp
+*.swo
+scratch/
+tmp/
+
+# Editors and IDEs
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.code-workspace
+
+# macOS and Windows filesystem droppings
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Documentation. The design notes, phase write-ups, runbooks and agent
+# instructions stay local — the runbooks in particular describe the breach
+# and key-rotation procedure, which is not something to publish.
+*.md

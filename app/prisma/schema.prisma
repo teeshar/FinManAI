@@ -1,0 +1,420 @@
+// FinManAI — Phase 2 schema
+//
+// PostgreSQL. The schema uses no provider-specific types, so it is portable,
+// but the migration SQL is not — regenerate migrations if the provider changes.
+//
+// Two decisions carry most of the weight here, both driven by SEBI's five-year
+// retention and the requirement that advice be justifiable after the fact:
+//
+//   1. Profiles are IMMUTABLE VERSIONS, never edited in place. A plan generated
+//      in March cannot be explained in September if the inputs were overwritten.
+//   2. AuditEvent is a HASH CHAIN. It does not prevent tampering — anyone with
+//      write access can rewrite rows — but it makes tampering provable, which
+//      is the property that matters in a dispute.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Authoring a migration needs a scratch database Prisma can reset. The
+  // application role is deliberately NOCREATEDB, so it cannot make one on the
+  // fly — we hand it a pre-made one instead of granting CREATEDB just to
+  // develop. Only `migrate dev` uses this; `migrate deploy` never does.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  ADVISER
+  COMPLIANCE
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  // Null for an account that only ever signs in with Google. Nullable rather
+  // than a placeholder hash: a sentinel value in a password column is the kind
+  // of thing that eventually gets compared against.
+  passwordHash  String? // scrypt$N$r$p$salt$hash — see core/src/password.ts
+
+  role Role @default(CLIENT)
+
+  // TOTP. Secret is AES-256-GCM encrypted with AAD "user:<id>:totp".
+  totpSecretEncrypted String?
+  totpEnabled         Boolean @default(false)
+  // Highest TOTP counter already accepted. Without this a shoulder-surfed code
+  // stays valid for its whole drift window.
+  totpLastCounter     Int?
+  recoveryCodeHashes  String? // JSON array; entries deleted as they are consumed
+
+  // Login throttling — see core/src/session.ts
+  failedAttempts Int       @default(0)
+  lockoutCount   Int       @default(0)
+  lockedUntil    DateTime?
+  firstFailureAt DateTime?
+
+  createdAt   DateTime  @default(now())
+  lastLoginAt DateTime?
+  deletedAt   DateTime? // soft delete only; retention forbids hard deletion
+
+  profiles      Profile[]
+  drafts        ProfileDraft[]
+  sessions      Session[]
+  consents      Consent[]
+  agreements    ClientAgreement[]
+  auditEvents   AuditEvent[]      @relation("subject")
+  actedEvents   AuditEvent[]      @relation("actor")
+  asClient      AdviserClient[]   @relation("client")
+  asAdviser     AdviserClient[]   @relation("adviser")
+  reviews       ProfileReview[]
+  oauthAccounts OAuthAccount[]
+
+  @@index([email])
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique // SHA-256 of an opaque 256-bit token. Raw token never stored.
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime // absolute, never extended
+  revokedAt  DateTime?
+  userAgent  String?
+  ipHash     String? // peppered hash, not the address itself
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+// B2B. An adviser acting for a client; both parties must have consented.
+model AdviserClient {
+  id         String    @id @default(cuid())
+  adviserId  String
+  clientId   String
+  status     String // invited | active | revoked
+  invitedAt  DateTime  @default(now())
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  adviser User @relation("adviser", fields: [adviserId], references: [id])
+  client  User @relation("client", fields: [clientId], references: [id])
+
+  @@unique([adviserId, clientId])
+  @@index([adviserId, status])
+}
+
+// An external identity provider signing this user in.
+//
+// A table rather than columns on User because an account may reasonably be
+// reachable by more than one route — Google today, a password as well, another
+// provider later — and because "when was this identity linked" is a question an
+// audit can ask.
+//
+// `providerAccountId` is the provider's own stable subject id, never the email.
+// Emails get reassigned and changed; the subject does not, and keying on the
+// address is how one person ends up in another person's account.
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String // google
+  providerAccountId String // Google's `sub` claim — stable for the life of the account
+  // The address the provider asserted at link time. Recorded for the audit
+  // trail; never used to match an account.
+  email             String
+  linkedAt          DateTime @default(now())
+  lastUsedAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// Work in progress. Overwritten freely — this is not a record of advice, it is
+// a half-finished form. Deleted once committed to a Profile.
+model ProfileDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  step      Int
+  data      String // encrypted JSON envelope, AAD "draft:<userId>:<step>"
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, step])
+}
+
+// Immutable. Never updated, never deleted inside the retention window.
+model Profile {
+  id           String  @id @default(cuid())
+  userId       String
+  version      Int
+  isActive     Boolean @default(true)
+  planningMode String // individual | household
+
+  // The full FinancialProfile, Zod-validated then AES-256-GCM encrypted.
+  // AAD is "profile:<id>" so a row cannot be moved onto another user.
+  dataEncrypted String
+  // SHA-256 of canonical PLAINTEXT, computed before encryption so integrity
+  // checks survive key rotation.
+  dataHash      String
+  keyVersion    String // which encryption key — drives rotation sweeps
+
+  createdAt DateTime @default(now())
+  createdBy String // userId of the client, or the adviser acting for them
+
+  user    User            @relation(fields: [userId], references: [id])
+  plans   Plan[]
+  reviews ProfileReview[]
+
+  @@unique([userId, version])
+  @@index([userId, isActive])
+  @@index([keyVersion])
+}
+
+// Append-only. Regenerating produces a new row; nothing is ever mutated.
+model Plan {
+  id          String @id @default(cuid())
+  profileId   String
+  // Must equal Profile.dataHash. If it does not, the plan cannot be explained
+  // and must not be presented as though it can.
+  profileHash String
+
+  engineVersion      String
+  assumptionsVersion String
+  advisoryMode       String // advisory | diagnostic_only
+
+  outputEncrypted String // the full RecommendationPlan
+  outputHash      String
+  keyVersion      String
+
+  // AI disclosure — SEBI requires the extent of AI use to be disclosable.
+  narrative           String?
+  narrativeSource     String // llm | fallback
+  narrativeModel      String?
+  narrativePromptHash String?
+  narrativeRejection  String?
+
+  generatedAt DateTime @default(now())
+  generatedBy String
+
+  profile   Profile        @relation(fields: [profileId], references: [id])
+  notes     PlanNote[]
+  approvals PlanApproval[]
+
+  @@index([profileId, generatedAt])
+}
+
+model Consent {
+  id             String @id @default(cuid())
+  userId         String
+  consentVersion String // the exact text version agreed to
+
+  processFinancialInformation         Boolean
+  generatePersonalisedRecommendations Boolean
+  informationAccurate                 Boolean
+  riskDisclosuresAccepted             Boolean
+  storeRecommendationHistory          Boolean
+  remindersAndNotifications           Boolean
+
+  nomineeName      String?
+  emergencyContact String?
+
+  acceptedAt DateTime  @default(now())
+  revokedAt  DateTime?
+  ipHash     String?
+  userAgent  String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt])
+}
+
+// Mandatory since 17 Feb 2025: standardised Most Important Terms & Conditions.
+model ClientAgreement {
+  id             String   @id @default(cuid())
+  userId         String
+  mitcVersion    String
+  documentHash   String // hash of the exact document served, so we can prove what they saw
+  signedAt       DateTime @default(now())
+  feeModel       String // fixed | aua
+  feeAmountPaise Int // ₹50 = 5000. Integers only; never floats for money.
+  ipHash         String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// Hash-chained. See core/src/audit.ts — verifyChain() is what a compliance
+// auditor runs, and what you should run on a schedule yourself.
+model AuditEvent {
+  id         String   @id @default(cuid())
+  sequence   Int
+  userId     String? // whose data this concerns
+  actorId    String? // who did it — differs when an adviser acts for a client
+  action     String
+  entityType String
+  entityId   String?
+  metadata   String? // JSON, never contains financial values
+  ipHash     String?
+  createdAt  DateTime @default(now())
+
+  prevHash String?
+  hash     String
+
+  // Set when a dispute or regulatory direction is live. Blocks deletion
+  // regardless of age.
+  legalHold Boolean @default(false)
+
+  // Restrict, not the default SetNull.
+  //
+  // With SetNull, hard-deleting a user silently rewrites every audit event that
+  // referenced them — which changes their contents, breaks their hashes, and
+  // makes verifyChain() report tampering that nobody did. It is a real trap:
+  // the chain is correct to complain, but the cause looks like an attack rather
+  // than a DELETE somebody ran.
+  //
+  // Retention already says users are soft-deleted only. This makes the database
+  // enforce that rather than trusting everyone to remember it: a DELETE against
+  // a user with any audit history now fails outright.
+  user  User? @relation("subject", fields: [userId], references: [id], onDelete: Restrict)
+  actor User? @relation("actor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([sequence])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
+
+/**
+ * ------------------------------------------------------------------
+ */
+/**
+ * Phase 6 — living advice
+ */
+/**
+ */
+/**
+ * Everything above produces a plan. Everything below keeps it true.
+ */
+/**
+ * ------------------------------------------------------------------
+ */
+
+// An annual review that produced no change.
+//
+// Without this, "when was this profile last reviewed" can only be answered by
+// the age of the newest Profile version — so a client who reviews carefully and
+// confirms nothing has changed looks identical to one who has ignored us for a
+// year. SEBI requires the review, not a change, so the review is what we record.
+model ProfileReview {
+  id         String   @id @default(cuid())
+  userId     String
+  profileId  String // the version that was reviewed
+  outcome    String // unchanged | updated
+  // Human-readable list of what moved, from detectMaterialChanges(). Never a
+  // financial value — a percentage change is a value. Store the labels only.
+  changes    String? // JSON array of strings
+  reviewedAt DateTime @default(now())
+  reviewedBy String // the client, or an adviser acting for them
+
+  user    User    @relation(fields: [userId], references: [id])
+  profile Profile @relation(fields: [profileId], references: [id])
+
+  @@index([userId, reviewedAt])
+}
+
+// An adviser's note against a plan. Retained with the plan for the full
+// retention window: what the adviser was thinking is part of the record of
+// what was advised.
+//
+// Encrypted, because a note about a client's finances is client financial data
+// however informally it was written.
+model PlanNote {
+  id            String   @id @default(cuid())
+  planId        String
+  adviserId     String
+  bodyEncrypted String // AAD "note:<id>"
+  keyVersion    String
+  createdAt     DateTime @default(now())
+
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([planId, createdAt])
+}
+
+// The adviser's release decision on a plan.
+//
+// A separate table rather than columns on Plan, because Plan is append-only and
+// an approval is a new fact rather than a correction of an old one. It also
+// means a withheld-then-approved sequence is visible, which a mutable column
+// would erase.
+model PlanApproval {
+  id        String   @id @default(cuid())
+  planId    String
+  adviserId String
+  decision  String // approved | withheld
+  reason    String?
+  decidedAt DateTime @default(now())
+
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([planId, decidedAt])
+}
+
+// Outgoing mail, queued before it is sent.
+//
+// Queued rather than sent inline for two reasons: a request must not fail
+// because a mail server is slow, and a reminder we believe we sent but did not
+// is worse than one we can see stuck in a queue. Delivery is a separate,
+// retryable step with its own record.
+model Outbox {
+  id        String    @id @default(cuid())
+  userId    String?
+  kind      String // reprofile_due | reprofile_overdue | plan_ready | verify_email
+  toEmail   String
+  subject   String
+  body      String
+  // Idempotency: one reminder of a given kind per user per period. A cron that
+  // runs twice must not mail twice.
+  dedupeKey String    @unique
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+  attempts  Int       @default(0)
+  lastError String?
+
+  @@index([sentAt, createdAt])
+}
+
+// A proposed change to the dated assumptions module, staged for human review.
+//
+// The discipline that must survive automation: a feed never edits the current
+// assumptions version. It stages a proposal, a human approves it, a NEW dated
+// version is written, and golden.ts runs so the blast radius across all nine
+// personas is visible BEFORE it reaches a client. An automated pipeline that
+// silently mutates the live version destroys the reproducibility the whole
+// engine is built on.
+model AssumptionsProposal {
+  id              String    @id @default(cuid())
+  sourceKey       String // amfi_nav | gold_spot | small_savings | tax_slabs | premiums | cpi
+  fromVersion     String
+  proposedVersion String
+  // JSON patch of dotted path → new value. Reviewed by a human, applied by
+  // scripts/assumptions-apply.ts, never by the web application.
+  payload         String
+  status          String // staged | approved | rejected | applied
+  stagedAt        DateTime  @default(now())
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  note            String?
+
+  @@index([status, stagedAt])
+}

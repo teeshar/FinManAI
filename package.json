@@ -1,0 +1,20 @@
+{
+  "name": "finmanai",
+  "private": true,
+  "workspaces": [
+    "engine",
+    "core",
+    "app"
+  ],
+  "scripts": {
+    "test": "npm run test --workspace=@finmanai/engine && npm run test --workspace=@finmanai/core",
+    "test:engine": "npm run test --workspace=@finmanai/engine",
+    "test:core": "npm run test --workspace=@finmanai/core"
+  },
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@finmanai/engine",
+  "version": "1.0.0",
+  "description": "Deterministic financial planning and investment recommendation engine for Indian households. Pure functions, zero runtime dependencies.",
+  "type": "module",
+  "main": "src/engine.ts",
+  "exports": {
+    ".": "./src/engine.ts",
+    "./types": "./src/types.ts",
+    "./narrative": "./src/narrative.ts",
+    "./assumptions": "./src/assumptions/v2026-08.ts"
+  },
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types tests/invariants.ts && node --experimental-strip-types tests/narrative.ts && node --experimental-strip-types tests/golden.ts",
+    "test:invariants": "node --experimental-strip-types tests/invariants.ts",
+    "test:narrative": "node --experimental-strip-types tests/narrative.ts",
+    "test:golden": "node --experimental-strip-types tests/golden.ts",
+    "golden:update": "node --experimental-strip-types tests/golden.ts --update",
+    "report": "node --experimental-strip-types tests/report.ts",
+    "report:one": "node --experimental-strip-types tests/report.ts",
+    "sensitivity": "node --experimental-strip-types tests/sensitivity.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "license": "UNLICENSED",
+  "private": true
+}

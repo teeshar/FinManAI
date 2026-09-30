@@ -1,0 +1,19 @@
+{
+  "name": "@finmanai/core",
+  "version": "1.0.0",
+  "description": "Security core for FinManAI — password hashing, TOTP, field encryption, audit chain, sessions, profile versioning. Zero runtime dependencies.",
+  "type": "module",
+  "exports": {
+    "./password": "./src/password.ts",
+    "./totp": "./src/totp.ts",
+    "./field-crypto": "./src/field-crypto.ts",
+    "./audit": "./src/audit.ts",
+    "./session": "./src/session.ts",
+    "./profile-store": "./src/profile-store.ts"
+  },
+  "engines": { "node": ">=22.6.0" },
+  "scripts": { "test": "node --experimental-strip-types tests/core.ts" },
+  "dependencies": {},
+  "license": "UNLICENSED",
+  "private": true
+}
